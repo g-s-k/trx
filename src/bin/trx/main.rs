@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::fs::FileType;
 use std::path::{Path, PathBuf};
 
-use ignore::overrides::OverrideBuilder;
+use ignore::overrides::{Override, OverrideBuilder};
 use ignore::WalkBuilder;
 use structopt::StructOpt;
 
@@ -29,6 +29,24 @@ struct Cli {
     ignore_pattern: Vec<String>,
     #[structopt(parse(from_os_str))]
     dir: Option<PathBuf>,
+}
+
+fn build_override(config: &Cli, root: &Path) -> Override {
+    let mut over = OverrideBuilder::new(root);
+
+    if !config.keep_pattern.is_empty() {
+        over.add("!*").unwrap();
+    }
+
+    for glob in config.keep_pattern.iter() {
+        over.add(&glob).unwrap();
+    }
+
+    for glob in config.ignore_pattern.iter() {
+        over.add(&format!("!{}", glob)).unwrap();
+    }
+
+    over.build().unwrap()
 }
 
 fn format_entry(entry: &Path, root: &Path, config: &Cli) -> String {
@@ -63,27 +81,12 @@ fn main() {
     let current_dir = PathBuf::from(".");
     let dir = cfg.dir.as_ref().unwrap_or(&current_dir);
 
-    // glob patterns
-    let mut over = OverrideBuilder::new(&dir);
-
-    if !cfg.keep_pattern.is_empty() {
-        over.add("!*").unwrap();
-    }
-
-    for glob in cfg.keep_pattern.iter() {
-        over.add(&glob).unwrap();
-    }
-
-    for glob in cfg.ignore_pattern.iter() {
-        over.add(&format!("!{}", glob)).unwrap();
-    }
-
     // find the files
     for entry in WalkBuilder::new(&dir)
         .max_depth(cfg.max_depth)
         .hidden(!cfg.all)
         .follow_links(cfg.symlinks)
-        .overrides(over.build().unwrap())
+        .overrides(build_override(&cfg, &dir))
         .build()
     {
         match entry {
