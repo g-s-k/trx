@@ -9,4 +9,3 @@ edition = "2018"
 
 [dependencies]
 structopt = "0.2.14"
-ignore = "0.4.6"
