@@ -1,6 +1,6 @@
 use std::ffi::OsStr;
 use std::fs::FileType;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use ignore::overrides::OverrideBuilder;
 use ignore::WalkBuilder;
@@ -31,11 +31,37 @@ struct Cli {
     dir: Option<PathBuf>,
 }
 
+fn format_entry(entry: &Path, root: &Path, config: &Cli) -> String {
+    let mut new = PathBuf::from(".");
+
+    let name = if config.full_paths && entry != root {
+        let tmp = entry
+            .canonicalize()
+            .unwrap()
+            .strip_prefix(&root.canonicalize().unwrap())
+            .unwrap()
+            .to_path_buf();
+        new.push(tmp);
+        new.to_str().unwrap()
+    } else {
+        entry
+            .file_name()
+            .unwrap_or_else(|| OsStr::new("."))
+            .to_str()
+            .unwrap()
+    };
+
+    if config.quote_names {
+        format!("\"{}\"", name)
+    } else {
+        name.to_string()
+    }
+}
+
 fn main() {
     let cfg = Cli::from_args();
     let current_dir = PathBuf::from(".");
-    let dir = cfg.dir.unwrap_or_else(|| current_dir.clone());
-    let canonical_dir = dir.canonicalize().unwrap();
+    let dir = cfg.dir.as_ref().unwrap_or(&current_dir);
 
     // glob patterns
     let mut over = OverrideBuilder::new(&dir);
@@ -44,11 +70,11 @@ fn main() {
         over.add("!*").unwrap();
     }
 
-    for glob in cfg.keep_pattern {
+    for glob in cfg.keep_pattern.iter() {
         over.add(&glob).unwrap();
     }
 
-    for glob in cfg.ignore_pattern {
+    for glob in cfg.ignore_pattern.iter() {
         over.add(&format!("!{}", glob)).unwrap();
     }
 
@@ -71,30 +97,11 @@ fn main() {
                     continue;
                 }
 
-                let mut out = e.into_path();
+                // format it
+                let name = format_entry(e.path(), &dir, &cfg);
 
-                let name = if cfg.full_paths && out != dir {
-                    let tmp = out
-                        .canonicalize()
-                        .unwrap()
-                        .strip_prefix(&canonical_dir)
-                        .unwrap()
-                        .to_path_buf();
-                    out = current_dir.clone();
-                    out.push(tmp);
-                    out.to_str().unwrap()
-                } else {
-                    out.file_name()
-                        .unwrap_or_else(|| OsStr::new("."))
-                        .to_str()
-                        .unwrap()
-                };
-
-                if cfg.quote_names {
-                    println!("\"{}\"", name);
-                } else {
-                    println!("{}", name);
-                }
+                // print it
+                println!("{}", name);
             }
             Err(e) => eprintln!("ERROR: {}", e),
         }
