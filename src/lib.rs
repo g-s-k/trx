@@ -3,18 +3,22 @@ use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 
+use glob::Pattern;
+
 const SUPER_DIR: char = '│';
 const PARENT_NTH: char = '├';
 const PARENT_LAST: char = '└';
 const INDENT: &str = "── ";
 
 #[derive(Clone, Copy, Default)]
-pub struct SearchOpts {
+pub struct SearchOpts<'a> {
     pub dirs_only: bool,
     pub follow_symlinks: bool,
     pub show_hidden: bool,
     pub stay_on_fs: bool,
     pub max_depth: Option<usize>,
+    pub positive_patterns: &'a [Pattern],
+    pub negative_patterns: &'a [Pattern],
 }
 
 #[derive(Clone, Copy, Default)]
@@ -33,7 +37,13 @@ pub struct Dir {
 }
 
 impl Dir {
-    pub fn from(obj: &PathBuf, cfg: SearchOpts) -> Self {
+    pub fn from(obj: &PathBuf, cfg: SearchOpts) -> Option<Self> {
+        for pat in cfg.negative_patterns {
+            if pat.matches_path(obj) {
+                return None;
+            }
+        }
+
         let link_contents = obj
             .read_link()
             .map(|e| e.canonicalize().unwrap().starts_with(obj));
@@ -51,21 +61,34 @@ impl Dir {
                 .unwrap()
                 .map(Result::unwrap)
                 .filter(|e| !cfg.dirs_only || e.metadata().unwrap().is_dir())
-                .map(|e| Self::from(&e.path(), SearchOpts { max_depth, ..cfg }))
+                .filter_map(|e| Self::from(&e.path(), SearchOpts { max_depth, ..cfg }))
                 .collect::<Vec<_>>();
 
-            Self {
+            Some(Self {
                 path: obj.to_owned(),
                 nest: Vec::new(),
                 contents,
                 format: FormatOpts::default(),
-            }
+            })
         } else {
-            Self {
-                path: obj.to_owned(),
-                nest: Vec::new(),
-                contents: Vec::new(),
-                format: FormatOpts::default(),
+            let mut should_stay = cfg.positive_patterns.is_empty();
+
+            for pat in cfg.positive_patterns {
+                if pat.matches_path(obj) {
+                    should_stay = true;
+                    break;
+                }
+            }
+
+            if should_stay {
+                Some(Self {
+                    path: obj.to_owned(),
+                    nest: Vec::new(),
+                    contents: Vec::new(),
+                    format: FormatOpts::default(),
+                })
+            } else {
+                None
             }
         }
     }

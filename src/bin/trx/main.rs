@@ -1,6 +1,7 @@
-use std::io::Result;
+use std::io::Result as IOResult;
 use std::path::PathBuf;
 
+use glob::{Pattern, PatternError};
 use structopt::StructOpt;
 
 use trx::*;
@@ -33,16 +34,45 @@ struct Config {
     quote_names: bool,
     #[structopt(short = "i")]
     no_indent: bool,
+    #[structopt(short)]
+    size: bool,
+    #[structopt(short)]
+    human_size: bool,
 
     // arguments
     #[structopt(parse(from_os_str))]
     dir: Option<PathBuf>,
 }
 
-fn main() -> Result<()> {
+fn pattern_ify(v: Vec<String>) -> Result<Vec<Pattern>, PatternError> {
+    let mut out = Vec::new();
+
+    for s in v.iter() {
+        out.push(Pattern::new(&format!("**/{}", s))?);
+    }
+
+    Ok(out)
+}
+
+fn main() -> IOResult<()> {
     let cfg = Config::from_args();
     let current_dir = PathBuf::from(".");
     let dir = cfg.dir.as_ref().unwrap_or(&current_dir);
+
+    let positive = match pattern_ify(cfg.keep_pattern) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("ERROR: {}", e);
+            std::process::exit(1);
+        }
+    };
+    let negative = match pattern_ify(cfg.ignore_pattern) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("ERROR: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     let search_opts = SearchOpts {
         show_hidden: cfg.all,
@@ -50,9 +80,18 @@ fn main() -> Result<()> {
         follow_symlinks: cfg.symlinks,
         max_depth: cfg.max_depth,
         stay_on_fs: cfg.stay_on_fs,
+        positive_patterns: &positive,
+        negative_patterns: &negative,
     };
 
-    let mut tree = Dir::from(dir, search_opts).with_format(FormatOpts {
+    let result = if let Some(t) = Dir::from(dir, search_opts) {
+        t
+    } else {
+        eprintln!("No files matched the given parameters.");
+        std::process::exit(0);
+    };
+
+    let mut tree = result.with_format(FormatOpts {
         full_paths: cfg.full_paths,
         indent: !cfg.no_indent,
         quote_names: cfg.quote_names,
