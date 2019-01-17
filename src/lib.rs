@@ -1,9 +1,10 @@
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
+use std::mem::replace;
 use std::path::PathBuf;
 
-use glob::Pattern;
+use glob::{MatchOptions, Pattern};
 
 const SUPER_DIR: char = '│';
 const PARENT_NTH: char = '├';
@@ -19,6 +20,7 @@ pub struct SearchOpts<'a> {
     pub max_depth: Option<usize>,
     pub positive_patterns: &'a [Pattern],
     pub negative_patterns: &'a [Pattern],
+    pub case_insensitive_match: bool,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -31,6 +33,7 @@ pub struct FormatOpts {
 #[derive(Clone)]
 pub struct Dir {
     path: PathBuf,
+    is_dir: bool,
     contents: Vec<Dir>,
     nest: Vec<bool>,
     format: FormatOpts,
@@ -38,8 +41,14 @@ pub struct Dir {
 
 impl Dir {
     pub fn from(obj: &PathBuf, cfg: SearchOpts) -> Option<Self> {
+        let match_opts = MatchOptions {
+            case_sensitive: !cfg.case_insensitive_match,
+            require_literal_separator: false,
+            require_literal_leading_dot: false,
+        };
+
         for pat in cfg.negative_patterns {
-            if pat.matches_path(obj) {
+            if pat.matches_path_with(obj, &match_opts) {
                 return None;
             }
         }
@@ -66,6 +75,7 @@ impl Dir {
 
             Some(Self {
                 path: obj.to_owned(),
+                is_dir: true,
                 nest: Vec::new(),
                 contents,
                 format: FormatOpts::default(),
@@ -74,7 +84,7 @@ impl Dir {
             let mut should_stay = cfg.positive_patterns.is_empty();
 
             for pat in cfg.positive_patterns {
-                if pat.matches_path(obj) {
+                if pat.matches_path_with(obj, &match_opts) {
                     should_stay = true;
                     break;
                 }
@@ -83,6 +93,7 @@ impl Dir {
             if should_stay {
                 Some(Self {
                     path: obj.to_owned(),
+                    is_dir: false,
                     nest: Vec::new(),
                     contents: Vec::new(),
                     format: FormatOpts::default(),
@@ -122,6 +133,23 @@ impl Dir {
     pub fn sort_children(&mut self) {
         self.contents.sort_unstable_by_key(|v| v.path.clone());
         self.contents.iter_mut().for_each(|c| c.sort_children());
+    }
+
+    fn has_nested_children(&self) -> bool {
+        !self.is_dir
+            || !self.contents.is_empty()
+                && self
+                    .contents
+                    .iter()
+                    .map(Self::has_nested_children)
+                    .any(|x| x)
+    }
+
+    pub fn prune(&mut self) {
+        self.contents = replace(&mut self.contents, Vec::new())
+            .into_iter()
+            .filter(Self::has_nested_children)
+            .collect();
     }
 }
 

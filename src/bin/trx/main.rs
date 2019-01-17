@@ -10,36 +10,54 @@ use trx::*;
 #[structopt(name = "trx", about = "A tree command that gets it")]
 struct Config {
     // search params
+    /// Show hidden files
     #[structopt(short)]
     all: bool,
+    /// Only show directories
     #[structopt(short)]
     directories: bool,
+    /// Follow symlinks
     #[structopt(short = "l")]
     symlinks: bool,
+    /// Don't follow symlinks off of this filesystem
     #[structopt(short = "x")]
     stay_on_fs: bool,
+    /// Maximum depth to recur to (infinite if unspecified)
     #[structopt(short = "L")]
     max_depth: Option<usize>,
 
     // globs
+    /// Glob / literal filenames to match (accepts multiple e.g. -P <first> -P <second>)
     #[structopt(short = "P")]
     keep_pattern: Vec<String>,
+    /// Glob / literal names to exclude (accepts multiple e.g. -I <first> -I <second>)
     #[structopt(short = "I")]
     ignore_pattern: Vec<String>,
+    /// Ignore case in glob matches
+    #[structopt(long = "case-insensitive")]
+    case_insensitive: bool,
 
     // formatting options
+    /// Print full paths
     #[structopt(short)]
     full_paths: bool,
+    /// Print each path in double-quotes
     #[structopt(short = "Q")]
     quote_names: bool,
+    /// Don't indent output (like `find`)
     #[structopt(short = "i")]
     no_indent: bool,
+    /// Don't show empty directories
+    #[structopt(long = "prune")]
+    prune_dirs: bool,
+    /// Print file size
     #[structopt(short)]
     size: bool,
+    /// Print human-readable file size
     #[structopt(short)]
     human_size: bool,
 
-    // arguments
+    /// The directory to start in
     #[structopt(parse(from_os_str))]
     dir: Option<PathBuf>,
 }
@@ -82,6 +100,7 @@ fn main() -> IOResult<()> {
         stay_on_fs: cfg.stay_on_fs,
         positive_patterns: &positive,
         negative_patterns: &negative,
+        case_insensitive_match: cfg.case_insensitive,
     };
 
     let result = if let Some(t) = Dir::from(dir, search_opts) {
@@ -96,6 +115,10 @@ fn main() -> IOResult<()> {
         indent: !cfg.no_indent,
         quote_names: cfg.quote_names,
     });
+
+    if cfg.prune_dirs {
+        tree.prune();
+    }
 
     tree.sort_children();
 
