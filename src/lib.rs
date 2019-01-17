@@ -8,6 +8,22 @@ const PARENT_NTH: char = '├';
 const PARENT_LAST: char = '└';
 const INDENT: &str = "── ";
 
+#[derive(Clone, Copy, Default)]
+pub struct SearchOpts {
+    pub dirs_only: bool,
+    pub follow_symlinks: bool,
+    pub show_hidden: bool,
+    pub stay_on_fs: bool,
+    pub max_depth: Option<usize>,
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct FormatOpts {
+    pub full_paths: bool,
+    pub indent: bool,
+    pub quote_names: bool,
+}
+
 #[derive(Clone)]
 pub struct Dir {
     path: PathBuf,
@@ -17,6 +33,44 @@ pub struct Dir {
 }
 
 impl Dir {
+    pub fn from(obj: &PathBuf, cfg: SearchOpts) -> Self {
+        let link_contents = obj
+            .read_link()
+            .map(|e| e.canonicalize().unwrap().starts_with(obj));
+        let should_follow_link = cfg.follow_symlinks
+            && (!cfg.stay_on_fs || (link_contents.is_ok() && *link_contents.as_ref().unwrap()));
+
+        let (should_recur, max_depth) = match cfg.max_depth {
+            Some(n) if n == 0 => (false, None),
+            Some(n) => (true, Some(n - 1)),
+            None => (true, None),
+        };
+
+        if obj.is_dir() && should_recur && (should_follow_link || link_contents.is_err()) {
+            let contents = fs::read_dir(obj)
+                .unwrap()
+                .into_iter()
+                .map(Result::unwrap)
+                .filter(|e| !cfg.dirs_only || e.metadata().unwrap().is_dir())
+                .map(|e| Self::from(&e.path(), SearchOpts { max_depth, ..cfg }))
+                .collect::<Vec<_>>();
+
+            Self {
+                path: obj.to_owned(),
+                nest: Vec::new(),
+                contents,
+                format: FormatOpts::default(),
+            }
+        } else {
+            Self {
+                path: obj.to_owned(),
+                nest: Vec::new(),
+                contents: Vec::new(),
+                format: FormatOpts::default(),
+            }
+        }
+    }
+
     fn with_nest_level(self, nest: Vec<bool>) -> Self {
         Self { nest, ..self }
     }
@@ -81,35 +135,4 @@ impl fmt::Display for Dir {
 
         Ok(())
     }
-}
-
-impl From<&PathBuf> for Dir {
-    fn from(obj: &PathBuf) -> Self {
-        if obj.is_dir() {
-            Self {
-                path: obj.to_owned(),
-                nest: Vec::new(),
-                contents: fs::read_dir(obj)
-                    .unwrap()
-                    .into_iter()
-                    .map(|e| Self::from(&e.unwrap().path()))
-                    .collect::<Vec<_>>(),
-                format: FormatOpts::default(),
-            }
-        } else {
-            Self {
-                path: obj.to_owned(),
-                nest: Vec::new(),
-                contents: Vec::new(),
-                format: FormatOpts::default(),
-            }
-        }
-    }
-}
-
-#[derive(Copy, Clone, Default)]
-pub struct FormatOpts {
-    pub full_paths: bool,
-    pub indent: bool,
-    pub quote_names: bool,
 }
