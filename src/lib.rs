@@ -49,7 +49,6 @@ impl Dir {
         if obj.is_dir() && should_recur && (should_follow_link || link_contents.is_err()) {
             let contents = fs::read_dir(obj)
                 .unwrap()
-                .into_iter()
                 .map(Result::unwrap)
                 .filter(|e| !cfg.dirs_only || e.metadata().unwrap().is_dir())
                 .map(|e| Self::from(&e.path(), SearchOpts { max_depth, ..cfg }))
@@ -83,7 +82,10 @@ impl Dir {
         let stringified = if self.format.full_paths {
             self.path.to_str()
         } else {
-            self.path.file_name().unwrap_or(OsStr::new(".")).to_str()
+            self.path
+                .file_name()
+                .unwrap_or_else(|| OsStr::new("."))
+                .to_str()
         }
         .unwrap();
 
