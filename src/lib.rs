@@ -1,3 +1,5 @@
+#![deny(clippy::pedantic)]
+
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
@@ -6,10 +8,10 @@ use std::path::PathBuf;
 
 use glob::{MatchOptions, Pattern};
 
-const SUPER_DIR: char = '│';
-const PARENT_NTH: char = '├';
-const PARENT_LAST: char = '└';
-const INDENT: &str = "── ";
+const SUPER_DIR: char = '\u{2502}';
+const PARENT_NTH: char = '\u{251c}';
+const PARENT_LAST: char = '\u{2514}';
+const INDENT: &str = "\u{2500}\u{2500} ";
 
 #[derive(Clone, Copy, Default)]
 pub struct SearchOpts<'a> {
