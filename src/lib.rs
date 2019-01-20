@@ -53,6 +53,14 @@ impl Dir {
             require_literal_leading_dot: false,
         };
 
+        if !cfg.show_hidden
+            && Pattern::new("./.*")
+                .unwrap()
+                .matches_path_with(obj, &match_opts)
+        {
+            return None;
+        }
+
         for pat in cfg
             .negative_patterns
             .into_iter()
@@ -266,18 +274,29 @@ impl VcsIgnore {
                 continue;
             }
 
+            if trimmed.starts_with('/') {
+                trimmed = &trimmed[1..];
+            }
+
             if trimmed.starts_with('!') {
-                white.push(Pattern::new(&trimmed[1..])?);
+                white.push(Self::glob2pat(&trimmed[1..])?);
             } else {
                 if trimmed.starts_with("\\#") || trimmed.starts_with("\\!") {
                     trimmed = &trimmed[1..];
                 }
 
-                black.push(Pattern::new(trimmed)?);
+                black.push(Self::glob2pat(trimmed)?);
             }
         }
 
         Ok(Self { white, black })
+    }
+
+    fn glob2pat(s: &str) -> Result<Pattern, TreeError> {
+        let mut p = PathBuf::new();
+        p.push(".");
+        p.push(s);
+        Ok(Pattern::new(p.as_os_str().to_str().unwrap())?)
     }
 
     fn find(dir: &PathBuf) -> Option<PathBuf> {
