@@ -1,9 +1,10 @@
 [package]
 name = "trx"
 description = "a modern implementation of the `tree` command"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["George Kaplan <george@georgekaplan.xyz>"]
 license = "Apache-2.0"
+readme = "./README.md"
 repository = "https://github.com/g-s-k/trx"
 edition = "2018"
 
