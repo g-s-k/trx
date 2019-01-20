@@ -1,7 +1,7 @@
 [package]
 name = "trx"
 description = "a modern implementation of the `tree` command"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["George Kaplan <george@georgekaplan.xyz>"]
 license = "Apache-2.0"
 readme = "./README.md"
