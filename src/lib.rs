@@ -161,14 +161,14 @@ impl Dir {
                     ftype: FType::Dir,
                     read_only: obj.metadata().unwrap().permissions().readonly(),
                     contents,
-                    ..Default::default()
+                    ..Self::default()
                 })
             } else {
                 Some(Self {
                     path: obj.to_owned(),
                     ftype: FType::Link(obj.read_link().unwrap()),
                     read_only: obj.metadata().unwrap().permissions().readonly(),
-                    ..Default::default()
+                    ..Self::default()
                 })
             }
         } else {
@@ -186,7 +186,7 @@ impl Dir {
                     path: obj.to_owned(),
                     ftype: FType::is_exec(obj),
                     read_only: obj.metadata().unwrap().permissions().readonly(),
-                    ..Default::default()
+                    ..Self::default()
                 })
             } else {
                 None
@@ -217,7 +217,8 @@ impl Dir {
             format!("\"{}\"", stringified)
         } else {
             stringified.to_string()
-        }.normal();
+        }
+        .normal();
 
         if self.format.colorize {
             if self.read_only {
