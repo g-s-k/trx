@@ -1,4 +1,7 @@
 # trx
+
+[![Build Status](https://travis-ci.org/g-s-k/trx.svg?branch=master)](https://travis-ci.org/g-s-k/trx)
+
 a `tree` command with some extra goodies.
 
 `cargo install trx` to get it.
