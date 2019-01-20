@@ -7,6 +7,7 @@ use std::io::{self, BufRead, BufReader};
 use std::mem::replace;
 use std::path::PathBuf;
 
+use colored::{Color, Colorize, ColoredString};
 use glob::{GlobError, MatchOptions, Pattern, PatternError};
 
 const SUPER_DIR: char = '\u{2502}';
@@ -31,6 +32,7 @@ pub struct SearchOpts<'a> {
 
 #[derive(Clone, Copy, Default)]
 pub struct FormatOpts {
+    pub colorize: bool,
     pub full_paths: bool,
     pub indent: bool,
     pub quote_names: bool,
@@ -153,7 +155,7 @@ impl Dir {
         Self { format, ..self }
     }
 
-    fn format_name(&self) -> String {
+    fn format_name(&self) -> ColoredString {
         let stringified = if self.format.full_paths {
             self.path.to_str()
         } else {
@@ -164,10 +166,20 @@ impl Dir {
         }
         .unwrap();
 
-        if self.format.quote_names {
+        let owned = if self.format.quote_names {
             format!("\"{}\"", stringified)
         } else {
             stringified.to_string()
+        };
+
+        if self.format.colorize {
+            if self.is_dir {
+                owned.color(Color::Blue)
+            } else {
+                owned.normal()
+            }
+        } else {
+            owned.normal()
         }
     }
 

@@ -11,3 +11,4 @@ edition = "2018"
 [dependencies]
 structopt = "0.2.14"
 glob = "0.2.11"
+colored = "1.7.0"

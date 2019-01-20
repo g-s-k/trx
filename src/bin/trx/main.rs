@@ -116,6 +116,7 @@ fn main() -> IOResult<()> {
     };
 
     let mut tree = result.with_format(FormatOpts {
+        colorize: true,
         full_paths: cfg.full_paths,
         indent: !cfg.no_indent,
         quote_names: cfg.quote_names,
