@@ -5,6 +5,7 @@ use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
 use std::mem::replace;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
 use colored::{ColoredString, Colorize};
@@ -41,8 +42,25 @@ pub struct FormatOpts {
 #[derive(Clone)]
 enum FType {
     Dir,
+    Exe,
     File,
     Link(PathBuf),
+}
+
+impl FType {
+    #[cfg(unix)]
+    fn is_exec(path: &PathBuf) -> Self {
+        if path.metadata().unwrap().permissions().mode() % 2 == 1 {
+            FType::Exe
+        } else {
+            FType::File
+        }
+    }
+
+    #[cfg(not(unix))]
+    fn is_exec(path: &PathBuf) -> Self {
+        FType::File
+    }
 }
 
 #[derive(Clone)]
@@ -162,7 +180,7 @@ impl Dir {
             if should_stay {
                 Some(Self {
                     path: obj.to_owned(),
-                    ftype: FType::File,
+                    ftype: FType::is_exec(obj),
                     ..Default::default()
                 })
             } else {
@@ -199,7 +217,8 @@ impl Dir {
         if self.format.colorize {
             match &self.ftype {
                 FType::Dir => owned.blue(),
-                FType::Link(loc) => format!("{} -> {:?}", owned.cyan(), loc).normal(),
+                FType::Exe => owned.green().bold(),
+                FType::Link(loc) => format!("{} -> {:?}", owned.cyan().bold(), loc).normal(),
                 FType::File => owned.normal(),
             }
         } else {
