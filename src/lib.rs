@@ -255,10 +255,14 @@ impl Dir {
     }
 
     pub fn prune(&mut self) {
-        self.contents = replace(&mut self.contents, Vec::new())
+        let mut contents = replace(&mut self.contents, Vec::new())
             .into_iter()
             .filter(Self::has_nested_children)
-            .collect();
+            .collect::<Vec<_>>();
+
+        contents.iter_mut().for_each(Self::prune);
+
+        self.contents = contents;
     }
 }
 
