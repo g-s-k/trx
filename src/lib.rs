@@ -67,6 +67,7 @@ impl FType {
 pub struct Dir {
     path: PathBuf,
     ftype: FType,
+    read_only: bool,
     contents: Vec<Dir>,
     nest: Vec<bool>,
     format: FormatOpts,
@@ -77,6 +78,7 @@ impl Default for Dir {
         Self {
             path: PathBuf::new(),
             ftype: FType::File,
+            read_only: false,
             contents: Vec::new(),
             nest: Vec::new(),
             format: FormatOpts::default(),
@@ -157,6 +159,7 @@ impl Dir {
                 Some(Self {
                     path: obj.to_owned(),
                     ftype: FType::Dir,
+                    read_only: obj.metadata().unwrap().permissions().readonly(),
                     contents,
                     ..Default::default()
                 })
@@ -164,6 +167,7 @@ impl Dir {
                 Some(Self {
                     path: obj.to_owned(),
                     ftype: FType::Link(obj.read_link().unwrap()),
+                    read_only: obj.metadata().unwrap().permissions().readonly(),
                     ..Default::default()
                 })
             }
@@ -181,6 +185,7 @@ impl Dir {
                 Some(Self {
                     path: obj.to_owned(),
                     ftype: FType::is_exec(obj),
+                    read_only: obj.metadata().unwrap().permissions().readonly(),
                     ..Default::default()
                 })
             } else {
@@ -208,22 +213,26 @@ impl Dir {
         }
         .unwrap();
 
-        let owned = if self.format.quote_names {
+        let mut owned = if self.format.quote_names {
             format!("\"{}\"", stringified)
         } else {
             stringified.to_string()
-        };
+        }.normal();
 
         if self.format.colorize {
-            match &self.ftype {
+            if self.read_only {
+                owned = owned.on_red();
+            }
+
+            owned = match &self.ftype {
                 FType::Dir => owned.blue(),
                 FType::Exe => owned.green().bold(),
                 FType::Link(loc) => format!("{} -> {:?}", owned.cyan().bold(), loc).normal(),
-                FType::File => owned.normal(),
-            }
-        } else {
-            owned.normal()
+                FType::File => owned,
+            };
         }
+
+        owned
     }
 
     pub fn sort_children(&mut self) {
