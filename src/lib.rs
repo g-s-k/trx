@@ -7,7 +7,7 @@ use std::io::{self, BufRead, BufReader};
 use std::mem::replace;
 use std::path::PathBuf;
 
-use colored::{Color, Colorize, ColoredString};
+use colored::{ColoredString, Colorize};
 use glob::{GlobError, MatchOptions, Pattern, PatternError};
 
 const SUPER_DIR: char = '\u{2502}';
@@ -39,12 +39,31 @@ pub struct FormatOpts {
 }
 
 #[derive(Clone)]
+enum FType {
+    Dir,
+    File,
+    Link(PathBuf),
+}
+
+#[derive(Clone)]
 pub struct Dir {
     path: PathBuf,
-    is_dir: bool,
+    ftype: FType,
     contents: Vec<Dir>,
     nest: Vec<bool>,
     format: FormatOpts,
+}
+
+impl Default for Dir {
+    fn default() -> Self {
+        Self {
+            path: PathBuf::new(),
+            ftype: FType::File,
+            contents: Vec::new(),
+            nest: Vec::new(),
+            format: FormatOpts::default(),
+        }
+    }
 }
 
 impl Dir {
@@ -91,38 +110,45 @@ impl Dir {
             None => (true, None),
         };
 
-        if obj.is_dir() && should_recur && (should_follow_link || link_contents.is_err()) {
-            let ignore_list = if cfg.use_gitignores {
-                VcsIgnore::in_dir_or_default(obj)
-            } else {
-                VcsIgnore::default()
-            }
-            .compose(cfg.vcs_blacklist_patterns, cfg.vcs_whitelist_patterns);
+        if obj.is_dir() && should_recur {
+            if should_follow_link || link_contents.is_err() {
+                let ignore_list = if cfg.use_gitignores {
+                    VcsIgnore::in_dir_or_default(obj)
+                } else {
+                    VcsIgnore::default()
+                }
+                .compose(cfg.vcs_blacklist_patterns, cfg.vcs_whitelist_patterns);
 
-            let contents = fs::read_dir(obj)
-                .unwrap()
-                .map(Result::unwrap)
-                .filter(|e| !cfg.dirs_only || e.metadata().unwrap().is_dir())
-                .filter_map(|e| {
-                    Self::from(
-                        &e.path(),
-                        SearchOpts {
-                            max_depth,
-                            vcs_blacklist_patterns: &ignore_list.black,
-                            vcs_whitelist_patterns: &ignore_list.white,
-                            ..cfg
-                        },
-                    )
+                let contents = fs::read_dir(obj)
+                    .unwrap()
+                    .map(Result::unwrap)
+                    .filter(|e| !cfg.dirs_only || e.metadata().unwrap().is_dir())
+                    .filter_map(|e| {
+                        Self::from(
+                            &e.path(),
+                            SearchOpts {
+                                max_depth,
+                                vcs_blacklist_patterns: &ignore_list.black,
+                                vcs_whitelist_patterns: &ignore_list.white,
+                                ..cfg
+                            },
+                        )
+                    })
+                    .collect::<Vec<_>>();
+
+                Some(Self {
+                    path: obj.to_owned(),
+                    ftype: FType::Dir,
+                    contents,
+                    ..Default::default()
                 })
-                .collect::<Vec<_>>();
-
-            Some(Self {
-                path: obj.to_owned(),
-                is_dir: true,
-                nest: Vec::new(),
-                contents,
-                format: FormatOpts::default(),
-            })
+            } else {
+                Some(Self {
+                    path: obj.to_owned(),
+                    ftype: FType::Link(obj.read_link().unwrap()),
+                    ..Default::default()
+                })
+            }
         } else {
             let mut should_stay = cfg.positive_patterns.is_empty();
 
@@ -136,10 +162,8 @@ impl Dir {
             if should_stay {
                 Some(Self {
                     path: obj.to_owned(),
-                    is_dir: false,
-                    nest: Vec::new(),
-                    contents: Vec::new(),
-                    format: FormatOpts::default(),
+                    ftype: FType::File,
+                    ..Default::default()
                 })
             } else {
                 None
@@ -173,10 +197,10 @@ impl Dir {
         };
 
         if self.format.colorize {
-            if self.is_dir {
-                owned.color(Color::Blue)
-            } else {
-                owned.normal()
+            match &self.ftype {
+                FType::Dir => owned.blue(),
+                FType::Link(loc) => format!("{} -> {:?}", owned.cyan(), loc).normal(),
+                FType::File => owned.normal(),
             }
         } else {
             owned.normal()
@@ -189,13 +213,16 @@ impl Dir {
     }
 
     fn has_nested_children(&self) -> bool {
-        !self.is_dir
-            || !self.contents.is_empty()
+        if let FType::Dir = self.ftype {
+            !self.contents.is_empty()
                 && self
                     .contents
                     .iter()
                     .map(Self::has_nested_children)
                     .any(|x| x)
+        } else {
+            true
+        }
     }
 
     pub fn prune(&mut self) {
