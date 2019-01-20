@@ -53,6 +53,9 @@ struct Config {
     /// Don't show empty directories
     #[structopt(long = "prune")]
     prune_dirs: bool,
+    /// Don't colorize output
+    #[structopt(short)]
+    no_color: bool,
     /// Print file size
     #[structopt(short)]
     size: bool,
@@ -116,7 +119,7 @@ fn main() -> IOResult<()> {
     };
 
     let mut tree = result.with_format(FormatOpts {
-        colorize: true,
+        colorize: !cfg.no_color,
         full_paths: cfg.full_paths,
         indent: !cfg.no_indent,
         quote_names: cfg.quote_names,
