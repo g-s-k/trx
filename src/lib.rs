@@ -63,13 +63,13 @@ impl Dir {
 
         for pat in cfg
             .negative_patterns
-            .into_iter()
-            .chain(cfg.vcs_blacklist_patterns.into_iter())
+            .iter()
+            .chain(cfg.vcs_blacklist_patterns.iter())
         {
             if pat.matches_path_with(obj, &match_opts)
                 && cfg
                     .vcs_whitelist_patterns
-                    .into_iter()
+                    .iter()
                     .find(|p| p.matches_path_with(obj, &match_opts))
                     .is_none()
             {
@@ -79,7 +79,7 @@ impl Dir {
 
         let link_contents = obj
             .read_link()
-            .map(|e| e.canonicalize().unwrap().starts_with(obj));
+            .map(|e| e.canonicalize().unwrap_or(e).starts_with(obj));
         let should_follow_link = cfg.follow_symlinks
             && (!cfg.stay_on_fs || (link_contents.is_ok() && *link_contents.as_ref().unwrap()));
 
@@ -93,7 +93,7 @@ impl Dir {
             let ignore_list = if cfg.use_gitignores {
                 VcsIgnore::in_dir_or_default(obj)
             } else {
-                Default::default()
+                VcsIgnore::default()
             }
             .compose(cfg.vcs_blacklist_patterns, cfg.vcs_whitelist_patterns);
 
@@ -296,7 +296,7 @@ impl VcsIgnore {
         let mut p = PathBuf::new();
         p.push(".");
         p.push(s);
-        Ok(Pattern::new(p.as_os_str().to_str().unwrap())?)
+        Ok(Pattern::new(&p.to_string_lossy())?)
     }
 
     fn find(dir: &PathBuf) -> Option<PathBuf> {
