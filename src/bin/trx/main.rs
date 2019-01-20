@@ -10,9 +10,12 @@ use trx::*;
 #[structopt(name = "trx", about = "A tree command that gets it")]
 struct Config {
     // search params
-    /// Show hidden files
+    /// Show hidden files (that start with a `.`)
     #[structopt(short)]
     all: bool,
+    /// Show files ignored by git
+    #[structopt(long = "no-ignore-vcs")]
+    no_ignore_vcs: bool,
     /// Only show directories
     #[structopt(short)]
     directories: bool,
@@ -98,9 +101,11 @@ fn main() -> IOResult<()> {
         follow_symlinks: cfg.symlinks,
         max_depth: cfg.max_depth,
         stay_on_fs: cfg.stay_on_fs,
+        use_gitignores: !cfg.no_ignore_vcs,
         positive_patterns: &positive,
         negative_patterns: &negative,
         case_insensitive_match: cfg.case_insensitive,
+        ..Default::default()
     };
 
     let result = if let Some(t) = Dir::from(dir, search_opts) {

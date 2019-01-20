@@ -2,11 +2,12 @@
 
 use std::ffi::OsStr;
 use std::fmt;
-use std::fs;
+use std::fs::{self, File};
+use std::io::{self, BufRead, BufReader};
 use std::mem::replace;
 use std::path::PathBuf;
 
-use glob::{MatchOptions, Pattern};
+use glob::{GlobError, MatchOptions, Pattern, PatternError};
 
 const SUPER_DIR: char = '\u{2502}';
 const PARENT_NTH: char = '\u{251c}';
@@ -20,6 +21,9 @@ pub struct SearchOpts<'a> {
     pub show_hidden: bool,
     pub stay_on_fs: bool,
     pub max_depth: Option<usize>,
+    pub use_gitignores: bool,
+    pub vcs_whitelist_patterns: &'a [Pattern],
+    pub vcs_blacklist_patterns: &'a [Pattern],
     pub positive_patterns: &'a [Pattern],
     pub negative_patterns: &'a [Pattern],
     pub case_insensitive_match: bool,
@@ -49,8 +53,18 @@ impl Dir {
             require_literal_leading_dot: false,
         };
 
-        for pat in cfg.negative_patterns {
-            if pat.matches_path_with(obj, &match_opts) {
+        for pat in cfg
+            .negative_patterns
+            .into_iter()
+            .chain(cfg.vcs_blacklist_patterns.into_iter())
+        {
+            if pat.matches_path_with(obj, &match_opts)
+                && cfg
+                    .vcs_whitelist_patterns
+                    .into_iter()
+                    .find(|p| p.matches_path_with(obj, &match_opts))
+                    .is_none()
+            {
                 return None;
             }
         }
@@ -68,11 +82,28 @@ impl Dir {
         };
 
         if obj.is_dir() && should_recur && (should_follow_link || link_contents.is_err()) {
+            let ignore_list = if cfg.use_gitignores {
+                VcsIgnore::in_dir_or_default(obj)
+            } else {
+                Default::default()
+            }
+            .compose(cfg.vcs_blacklist_patterns, cfg.vcs_whitelist_patterns);
+
             let contents = fs::read_dir(obj)
                 .unwrap()
                 .map(Result::unwrap)
                 .filter(|e| !cfg.dirs_only || e.metadata().unwrap().is_dir())
-                .filter_map(|e| Self::from(&e.path(), SearchOpts { max_depth, ..cfg }))
+                .filter_map(|e| {
+                    Self::from(
+                        &e.path(),
+                        SearchOpts {
+                            max_depth,
+                            vcs_blacklist_patterns: &ignore_list.black,
+                            vcs_whitelist_patterns: &ignore_list.white,
+                            ..cfg
+                        },
+                    )
+                })
                 .collect::<Vec<_>>();
 
             Some(Self {
@@ -189,5 +220,86 @@ impl fmt::Display for Dir {
         }
 
         Ok(())
+    }
+}
+
+pub enum TreeError {
+    IO(io::Error),
+    Glob(GlobError),
+    Pattern(PatternError),
+}
+
+impl From<io::Error> for TreeError {
+    fn from(e: io::Error) -> Self {
+        TreeError::IO(e)
+    }
+}
+
+impl From<GlobError> for TreeError {
+    fn from(e: GlobError) -> Self {
+        TreeError::Glob(e)
+    }
+}
+
+impl From<PatternError> for TreeError {
+    fn from(e: PatternError) -> Self {
+        TreeError::Pattern(e)
+    }
+}
+
+#[derive(Debug, Default)]
+struct VcsIgnore {
+    black: Vec<Pattern>,
+    white: Vec<Pattern>,
+}
+
+impl VcsIgnore {
+    fn new(file: &PathBuf) -> Result<Self, TreeError> {
+        let (mut black, mut white) = (Vec::new(), Vec::new());
+
+        let f = File::open(file)?;
+        for line in BufReader::new(f).lines() {
+            let line = line?;
+            let mut trimmed = line.trim();
+
+            if trimmed.starts_with('#') {
+                continue;
+            }
+
+            if trimmed.starts_with('!') {
+                white.push(Pattern::new(&trimmed[1..])?);
+            } else {
+                if trimmed.starts_with("\\#") || trimmed.starts_with("\\!") {
+                    trimmed = &trimmed[1..];
+                }
+
+                black.push(Pattern::new(trimmed)?);
+            }
+        }
+
+        Ok(Self { white, black })
+    }
+
+    fn find(dir: &PathBuf) -> Option<PathBuf> {
+        let mut path_to = dir.to_owned();
+        path_to.push(".gitignore");
+
+        if path_to.exists() {
+            Some(path_to)
+        } else {
+            None
+        }
+    }
+
+    fn in_dir_or_default(dir: &PathBuf) -> Self {
+        Self::find(dir).map_or_else(Self::default, |f| {
+            Self::new(&f).unwrap_or_else(|_| Self::default())
+        })
+    }
+
+    fn compose(mut self, other_black: &[Pattern], other_white: &[Pattern]) -> Self {
+        self.black.extend_from_slice(other_black);
+        self.white.extend_from_slice(other_white);
+        self
     }
 }
