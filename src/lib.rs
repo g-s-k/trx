@@ -58,7 +58,7 @@ impl FType {
     }
 
     #[cfg(not(unix))]
-    fn is_exec(path: &PathBuf) -> Self {
+    fn is_exec(_path: &PathBuf) -> Self {
         FType::File
     }
 }
