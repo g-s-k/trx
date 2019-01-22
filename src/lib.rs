@@ -94,8 +94,11 @@ impl Dir {
             require_literal_leading_dot: false,
         };
 
+        let mut h_pth = obj.to_owned();
+        h_pth.set_file_name(".*");
+
         if !cfg.show_hidden
-            && Pattern::new("./.*")
+            && Pattern::new(dbg!(&h_pth.to_string_lossy()))
                 .unwrap()
                 .matches_path_with(obj, &match_opts)
         {
