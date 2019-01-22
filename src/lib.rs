@@ -98,7 +98,7 @@ impl Dir {
         h_pth.set_file_name(".*");
 
         if !cfg.show_hidden
-            && Pattern::new(dbg!(&h_pth.to_string_lossy()))
+            && Pattern::new(&h_pth.to_string_lossy())
                 .unwrap()
                 .matches_path_with(obj, &match_opts)
         {
