@@ -8,13 +8,15 @@ use trx::*;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "trx", about = "A tree command that gets it")]
+#[structopt(raw(setting = "structopt::clap::AppSettings::ColoredHelp"))]
+#[structopt(rename_all = "kebab-case")]
 struct Config {
     // search params
     /// Show hidden files (that start with a `.`)
     #[structopt(short)]
     all: bool,
     /// Show files ignored by git
-    #[structopt(long = "no-ignore-vcs")]
+    #[structopt(long)]
     no_ignore_vcs: bool,
     /// Only show directories
     #[structopt(short)]
@@ -37,7 +39,7 @@ struct Config {
     #[structopt(short = "I")]
     ignore_pattern: Vec<String>,
     /// Ignore case in glob matches
-    #[structopt(long = "case-insensitive")]
+    #[structopt(long)]
     case_insensitive: bool,
 
     // formatting options
