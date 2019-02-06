@@ -292,11 +292,30 @@ impl Dir {
     }
 
     fn render_self_html(&self) -> String {
-        let mut out = self.stringify_name();
+        let name = self.stringify_name();
 
-        if self.format.html_links {
-            out = format!("<a href=\"{}\">{}</a>", self.path.to_string_lossy(), out);
+        let mut class = match &self.ftype {
+            FType::Dir => "dir",
+            FType::Exe => "exe",
+            FType::Link(_) => "link",
+            FType::File => "file",
         }
+        .to_string();
+
+        if self.read_only {
+            class = format!("{} ro", class);
+        }
+
+        let mut out = if self.format.html_links {
+            format!(
+                "<a class=\"{}\" href=\"{}\">{}</a>",
+                class,
+                self.path.to_string_lossy(),
+                name
+            )
+        } else {
+            format!("<span class=\"{}\">{}</span>", class, name)
+        };
 
         if !self.contents.is_empty() {
             out.push_str("<ul>");
