@@ -1,4 +1,5 @@
-use std::io::Result as IOResult;
+use std::fs::File;
+use std::io::{stdout, BufWriter, Result as IOResult, Write};
 use std::path::PathBuf;
 
 use glob::{Pattern, PatternError};
@@ -75,7 +76,7 @@ struct Config {
     charset: String,
     /// Date format string
     #[structopt(long = "timefmt")]
-    time_format: String,
+    time_format: Option<String>,
 
     // output
     /// Send output to a file
@@ -163,14 +164,23 @@ fn main() -> IOResult<()> {
 
     tree.sort_children();
 
-    if cfg.html_out {
-        println!("{}", tree.to_html());
-    } else if cfg.json_out {
-        serde_json::to_writer(std::io::stdout(), &tree)?;
-        println!();
+    let output: Box<Write> = if let Some(file) = cfg.output {
+        Box::new(File::create(file)?)
     } else {
-        println!("{}", tree);
+        Box::new(stdout())
+    };
+
+    let mut buffered = BufWriter::new(output);
+
+    if cfg.html_out {
+        buffered.write_all(tree.to_html().as_bytes())?;
+    } else if cfg.json_out {
+        serde_json::to_writer(&mut buffered, &tree)?;
+    } else {
+        buffered.write_all(tree.to_string().as_bytes())?;
     }
+
+    buffered.write(b"\n")?;
 
     Ok(())
 }
