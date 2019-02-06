@@ -65,6 +65,14 @@ struct Config {
     #[structopt(short)]
     human_size: bool,
 
+    // output
+    /// Output as HTML
+    #[structopt(short = "H")]
+    html_out: bool, // TODO: in the original this takes a value
+    /// Don't include links in HTML output
+    #[structopt(long = "nolinks", requires = "html-out")]
+    no_links: bool,
+
     /// The directory to start in
     #[structopt(parse(from_os_str))]
     dir: Option<PathBuf>,
@@ -125,6 +133,7 @@ fn main() -> IOResult<()> {
         full_paths: cfg.full_paths,
         indent: !cfg.no_indent,
         quote_names: cfg.quote_names,
+        html_links: !cfg.no_links,
     });
 
     if cfg.prune_dirs {
@@ -133,7 +142,11 @@ fn main() -> IOResult<()> {
 
     tree.sort_children();
 
-    println!("{}", tree);
+    if cfg.html_out {
+        println!("{}", tree.to_html());
+    } else {
+        println!("{}", tree);
+    }
 
     Ok(())
 }

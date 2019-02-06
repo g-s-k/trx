@@ -1,0 +1,41 @@
+body {
+  font-family: monospace;
+}
+
+a {
+  text-decoration: none;
+}
+
+ul, li {
+  position: relative;
+}
+
+ul {
+  margin: 0;
+  padding-left: 2em;
+  list-style: none;
+}
+
+li::before, li::after {
+  content: "";
+  position: absolute;
+  left: -1.75em;
+}
+
+li::after {
+  border-left: 2px solid black;
+  height: 100%;
+  width: 0;
+  top: 0.125em;
+}
+
+li:last-child::after {
+  height: 0.375em;
+}
+
+li::before {
+  border-top: 2px solid black;
+  top: 0.5em;
+  width: 1.25em;
+  height: 0;
+}

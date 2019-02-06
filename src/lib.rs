@@ -37,6 +37,7 @@ pub struct FormatOpts {
     pub full_paths: bool,
     pub indent: bool,
     pub quote_names: bool,
+    pub html_links: bool,
 }
 
 #[derive(Clone)]
@@ -217,23 +218,25 @@ impl Dir {
         Self { format, ..self }
     }
 
-    fn format_name(&self) -> ColoredString {
+    fn stringify_name(&self) -> String {
         let stringified = if self.format.full_paths {
-            self.path.to_str()
+            self.path.to_string_lossy()
         } else {
             self.path
                 .file_name()
                 .unwrap_or_else(|| OsStr::new("."))
-                .to_str()
-        }
-        .unwrap();
+                .to_string_lossy()
+        };
 
-        let mut owned = if self.format.quote_names {
+        if self.format.quote_names {
             format!("\"{}\"", stringified)
         } else {
             stringified.to_string()
         }
-        .normal();
+    }
+
+    fn format_name(&self) -> ColoredString {
+        let mut owned = self.stringify_name().normal();
 
         if self.format.colorize {
             if self.read_only {
@@ -278,6 +281,38 @@ impl Dir {
         contents.iter_mut().for_each(Self::prune);
 
         self.contents = contents;
+    }
+
+    pub fn to_html(&self) -> String {
+        format!(
+            include_str!("html/template.html"),
+            include_str!("html/styles.css"),
+            self.render_self_html()
+        )
+    }
+
+    fn render_self_html(&self) -> String {
+        let mut out = self.stringify_name();
+
+        if self.format.html_links {
+            out = format!("<a href=\"{}\">{}</a>", self.path.to_string_lossy(), out);
+        }
+
+        if !self.contents.is_empty() {
+            out.push_str("<ul>");
+            for element in self.contents.iter() {
+                out.push_str(&format!(
+                    "<li>{}</li>",
+                    element
+                        .to_owned()
+                        .with_format(self.format)
+                        .render_self_html()
+                ));
+            }
+            out.push_str("</ul>");
+        }
+
+        out
     }
 }
 
