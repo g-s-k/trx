@@ -287,6 +287,11 @@ impl Dir {
         format!(
             include_str!("html/template.html"),
             include_str!("html/styles.css"),
+            if self.format.colorize {
+                include_str!("html/colors.css")
+            } else {
+                ""
+            },
             self.render_self_html()
         )
     }

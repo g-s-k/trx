@@ -8,26 +8,6 @@ a {
   outline: 0;
 }
 
-a.dir {
-  color: blue;
-}
-
-a.exe {
-  color: green;
-}
-
-a.link {
-  color: cyan;
-}
-
-a.ro {
-  background-color: red;
-}
-
-a.ro.file {
-  color: white;
-}
-
 ul, li {
   position: relative;
 }
