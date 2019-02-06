@@ -50,7 +50,9 @@ enum FType {
 impl FType {
     #[cfg(unix)]
     fn is_exec(path: &PathBuf) -> Self {
-        if path.metadata().unwrap().permissions().mode() % 2 == 1 {
+        if path.is_dir() {
+            FType::Dir
+        } else if path.metadata().unwrap().permissions().mode() % 2 == 1 {
             FType::Exe
         } else {
             FType::File
