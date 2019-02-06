@@ -6,7 +6,7 @@ use std::fs::{self, File};
 use std::io::{self, BufRead, BufReader};
 use std::mem::replace;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use colored::{ColoredString, Colorize};
 use glob::{GlobError, MatchOptions, Pattern, PatternError};
@@ -351,6 +351,7 @@ struct VcsIgnore {
 impl VcsIgnore {
     fn new(file: &PathBuf) -> Result<Self, TreeError> {
         let (mut black, mut white) = (Vec::new(), Vec::new());
+        let parent = file.parent().unwrap_or_else(|| Path::new("."));
 
         let f = File::open(file)?;
         for line in BufReader::new(f).lines() {
@@ -366,22 +367,21 @@ impl VcsIgnore {
             }
 
             if trimmed.starts_with('!') {
-                white.push(Self::glob2pat(&trimmed[1..])?);
+                white.push(Self::glob2pat(parent, &trimmed[1..])?);
             } else {
                 if trimmed.starts_with("\\#") || trimmed.starts_with("\\!") {
                     trimmed = &trimmed[1..];
                 }
 
-                black.push(Self::glob2pat(trimmed)?);
+                black.push(Self::glob2pat(parent, trimmed)?);
             }
         }
 
         Ok(Self { white, black })
     }
 
-    fn glob2pat(s: &str) -> Result<Pattern, TreeError> {
-        let mut p = PathBuf::new();
-        p.push(".");
+    fn glob2pat(dir: &Path, s: &str) -> Result<Pattern, TreeError> {
+        let mut p = dir.to_path_buf();
         p.push(s);
         Ok(Pattern::new(&p.to_string_lossy())?)
     }
@@ -398,9 +398,11 @@ impl VcsIgnore {
     }
 
     fn in_dir_or_default(dir: &PathBuf) -> Self {
-        Self::find(dir).map_or_else(Self::default, |f| {
-            Self::new(&f).unwrap_or_else(|_| Self::default())
-        })
+        Self::find(dir)
+            .as_ref()
+            .map(Self::new)
+            .map(Result::unwrap_or_default)
+            .unwrap_or_default()
     }
 
     fn compose(mut self, other_black: &[Pattern], other_white: &[Pattern]) -> Self {
