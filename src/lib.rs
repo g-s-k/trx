@@ -1,5 +1,8 @@
 #![deny(clippy::pedantic)]
 
+#[macro_use]
+extern crate serde_derive;
+
 use std::ffi::OsStr;
 use std::fmt;
 use std::fs::{self, File};
@@ -40,9 +43,12 @@ pub struct FormatOpts {
     pub html_links: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "lowercase")]
 enum FType {
+    #[serde(rename = "directory")]
     Dir,
+    #[serde(rename = "file")]
     Exe,
     File,
     Link(PathBuf),
@@ -76,13 +82,19 @@ impl FType {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Dir {
+    #[serde(rename = "name")]
     path: PathBuf,
-    ftype: FType,
-    read_only: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     contents: Vec<Dir>,
+    #[serde(rename = "type")]
+    ftype: FType,
+    #[serde(skip)]
+    read_only: bool,
+    #[serde(skip)]
     nest: Vec<bool>,
+    #[serde(skip)]
     format: FormatOpts,
 }
 

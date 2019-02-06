@@ -72,6 +72,9 @@ struct Config {
     /// Don't include links in HTML output
     #[structopt(long = "nolinks", requires = "html-out")]
     no_links: bool,
+    /// Output as JSON
+    #[structopt(short = "J")]
+    json_out: bool,
 
     /// The directory to start in
     #[structopt(parse(from_os_str))]
@@ -144,6 +147,9 @@ fn main() -> IOResult<()> {
 
     if cfg.html_out {
         println!("{}", tree.to_html());
+    } else if cfg.json_out {
+        serde_json::to_writer(std::io::stdout(), &tree)?;
+        println!();
     } else {
         println!("{}", tree);
     }
