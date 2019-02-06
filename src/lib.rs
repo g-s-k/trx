@@ -59,7 +59,17 @@ impl FType {
         }
     }
 
-    #[cfg(not(unix))]
+    #[cfg(windows)]
+    fn is_exec(_path: &PathBuf) -> Self {
+        if let Some("exe") = path.extension() {
+            FType::Exe
+        } else {
+            FType::File
+        }
+    }
+
+    // TODO: determine if this is even possible
+    #[cfg(all(not(unix), not(windows)))]
     fn is_exec(_path: &PathBuf) -> Self {
         FType::File
     }
