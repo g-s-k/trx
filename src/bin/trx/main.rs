@@ -56,27 +56,39 @@ struct Config {
     /// Don't indent output (like `find`)
     #[structopt(short = "i")]
     no_indent: bool,
+    /// Print trailing slash and other decorations (like `ls -F`)
+    #[structopt(short = "F")]
+    decorate_names: bool, // TODO: implement this
     /// Don't show empty directories
     #[structopt(long = "prune")]
     prune_dirs: bool,
     /// Don't colorize output
     #[structopt(short)]
     no_color: bool,
-    /// Print file size
+    /// Print file size in bytes
     #[structopt(short)]
-    size: bool,
+    size: bool, // TODO: add sizes
     /// Print human-readable file size
     #[structopt(short)]
     human_size: bool,
+    /// Print file size in SI units
+    #[structopt(long = "si")]
+    si_size: bool,
+    /// Print disk usage per directory
+    #[structopt(long = "du")]
+    du_size: bool,
     /// Don't show the report at the end of the listing
     #[structopt(long = "noreport")]
-    no_report: bool,
+    no_report: bool, // TODO: consider adding a report for this to silence
     /// Character set to use in output
     #[structopt(long, default_value = "UTF-8")]
-    charset: String,
+    charset: String, // TODO: determine usefulness of switching charsets
+    /// Print the last modification time of each file
+    #[structopt(short = "D")]
+    mod_time: bool,
     /// Date format string
     #[structopt(long = "timefmt")]
-    time_format: Option<String>,
+    time_format: Option<String>, // TODO: implement dates
 
     // output
     /// Send output to a file
@@ -87,7 +99,7 @@ struct Config {
     html_out: bool, // TODO: in the original this takes a value
     /// Set HTML title and header text
     #[structopt(short = "T", requires = "html-out")]
-    html_title: Option<String>,
+    html_title: Option<String>, // TODO: implement this
     /// Don't include links in HTML output
     #[structopt(long = "nolinks", requires = "html-out")]
     no_links: bool,
