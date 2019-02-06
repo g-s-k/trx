@@ -30,6 +30,9 @@ struct Config {
     /// Maximum depth to recur to (infinite if unspecified)
     #[structopt(short = "L")]
     max_depth: Option<usize>,
+    /// Don't descend into directories with more than `n` entries
+    #[structopt(long = "filelimit")]
+    file_limit: Option<usize>,
 
     // globs
     /// Glob / literal filenames to match (accepts multiple e.g. -P <first> -P <second>)
@@ -64,16 +67,31 @@ struct Config {
     /// Print human-readable file size
     #[structopt(short)]
     human_size: bool,
+    /// Don't show the report at the end of the listing
+    #[structopt(long = "noreport")]
+    no_report: bool,
+    /// Character set to use in output
+    #[structopt(long, default_value = "UTF-8")]
+    charset: String,
+    /// Date format string
+    #[structopt(long = "timefmt")]
+    time_format: String,
 
     // output
+    /// Send output to a file
+    #[structopt(short, parse(from_os_str))]
+    output: Option<PathBuf>,
     /// Output as HTML
     #[structopt(short = "H")]
     html_out: bool, // TODO: in the original this takes a value
+    /// Set HTML title and header text
+    #[structopt(short = "T", requires = "html-out")]
+    html_title: Option<String>,
     /// Don't include links in HTML output
     #[structopt(long = "nolinks", requires = "html-out")]
     no_links: bool,
     /// Output as JSON
-    #[structopt(short = "J")]
+    #[structopt(short = "J", conflicts_with = "html-out")]
     json_out: bool,
 
     /// The directory to start in
