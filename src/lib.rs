@@ -37,6 +37,7 @@ pub struct SearchOpts<'a> {
 #[derive(Clone, Copy, Default)]
 pub struct FormatOpts {
     pub colorize: bool,
+    pub decorate: bool,
     pub full_paths: bool,
     pub indent: bool,
     pub quote_names: bool,
@@ -240,11 +241,23 @@ impl Dir {
                 .to_string_lossy()
         };
 
-        if self.format.quote_names {
+        let mut quoted = if self.format.quote_names {
             format!("\"{}\"", stringified)
         } else {
             stringified.to_string()
+        };
+
+        // TODO: add = for socket files, % for whiteouts, | for FIFOs
+        if self.format.decorate {
+            match &self.ftype {
+                FType::Dir => quoted.push('/'),
+                FType::Exe => quoted.push('*'),
+                FType::Link(_) => quoted.push('@'),
+                _ => (),
+            }
         }
+
+        quoted
     }
 
     fn format_name(&self) -> ColoredString {

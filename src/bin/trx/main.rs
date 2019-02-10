@@ -58,7 +58,7 @@ struct Config {
     no_indent: bool,
     /// Print trailing slash and other decorations (like `ls -F`)
     #[structopt(short = "F")]
-    decorate_names: bool, // TODO: implement this
+    decorate_names: bool,
     /// Don't show empty directories
     #[structopt(long = "prune")]
     prune_dirs: bool,
@@ -164,6 +164,7 @@ fn main() -> IOResult<()> {
 
     let mut tree = result.with_format(FormatOpts {
         colorize: !cfg.no_color,
+        decorate: cfg.decorate_names,
         full_paths: cfg.full_paths,
         indent: !cfg.no_indent,
         quote_names: cfg.quote_names,
