@@ -4,7 +4,17 @@ rust:
   - beta
   - nightly
 cache: cargo
+
+stages:
+  - lint
+  - test
+
 matrix:
+  include:
+    - stage: lint
+      rust: stable
+      before_script: rustup component add clippy
+      script: cargo clippy -- -D warnings
   allow_failures:
     - rust: nightly
   fast_finish: true
