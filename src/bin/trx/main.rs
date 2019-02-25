@@ -193,7 +193,7 @@ fn main() -> IOResult<()> {
         buffered.write_all(tree.to_string().as_bytes())?;
     }
 
-    buffered.write(b"\n")?;
+    buffered.write_all(b"\n")?;
 
     Ok(())
 }

@@ -349,7 +349,7 @@ impl Dir {
 
         if !self.contents.is_empty() {
             out.push_str("<ul>");
-            for element in self.contents.iter() {
+            for element in &self.contents {
                 out.push_str(&format!(
                     "<li>{}</li>",
                     element
